@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <exception>
 #include <iostream>
 #include <cmath>
 #include <limits>
@@ -124,7 +125,7 @@ public:
     
     void Strike() {
         if (StrikesLeft <= 0) {
-            throw "Not enough charges!";
+            throw std::runtime_error("Not enough charges!");
         }
         --StrikesLeft;
     }
@@ -351,10 +352,14 @@ private:
 };
 
 int main(int argc, const char** argv) {
-    World world(std::cin);
-
-    while (world.IsRunning()) {
-        world.NextStep(std::cin, std::cout);
+    try {
+        World world(std::cin);
+        while (world.IsRunning()) {
+            world.NextStep(std::cin, std::cout);
+        }
+    } catch (const std::exception& exception) {
+        std::cerr << "An error occurred: " << exception.what() << std::endl;
+        return 1;
     }
 
     return 0;
