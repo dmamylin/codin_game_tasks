@@ -300,9 +300,12 @@ public:
         }
 
         const auto nextPosition = FindNextPosition(mostDistantGiant, allowedPositions);
+
+        #ifdef PRINT_DEBUG_INFO
         WritePoint(std::cerr, Player.GetPosition(), "Thor") << std::endl;
         WritePoint(std::cerr, mostDistantGiant.GetPosition(), "Giant") << std::endl;
         WritePoint(std::cerr, nextPosition, "Next position") << std::endl;
+        #endif
 
         return MoveThor(nextPosition);
     }
