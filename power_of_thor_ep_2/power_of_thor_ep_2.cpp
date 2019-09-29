@@ -329,7 +329,7 @@ private:
     }
     
     void WriteWorldMap(std::ostream& os) const {
-        static const auto toPlainIdx = [this](const Point& p) {
+        static const auto toPlainIdx = [](const Point& p) {
             return MAX_MAP_X * p.Y + p.X;
         };
         
