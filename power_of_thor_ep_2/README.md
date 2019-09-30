@@ -1,5 +1,5 @@
 # About
-Link: https://www.codingame.com/ide/puzzle/power-of-thor-episode-2
+Link: https://www.codingame.com/training/hard/power-of-thor-episode-2
 
 The idea is very simple:
 1. If Thor doesn't have any safe positions to move OR he can strike the most distant giant, we return "STRIKE" command. **GOTO step 1.**
