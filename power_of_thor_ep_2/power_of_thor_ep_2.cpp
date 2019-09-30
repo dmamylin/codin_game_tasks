@@ -42,14 +42,23 @@ Point operator-(const Point& lhs, const Point& rhs) {
     return {lhs.X - rhs.X, lhs.Y - rhs.Y};
 }
 
-int Distance(const Point& lhs, const Point& rhs) {
+int DotProduct(const Point& lhs, const Point& rhs) {
+    return lhs.X * rhs.X + lhs.Y * rhs.Y;
+}
+
+int ManhattanDistance(const Point& lhs, const Point& rhs) {
     const int dxAbs = abs(lhs.X - rhs.X);
     const int dyAbs = abs(lhs.Y - rhs.Y);
     return std::max(dxAbs, dyAbs);
 }
 
+float EuclidDistance(const Point& lhs, const Point& rhs) {
+    const auto diff = rhs - lhs;
+    return sqrtf(static_cast<float>(DotProduct(diff, diff)));
+}
+
 bool IsInRadius(const Point& point, const Point& center, int radius) {
-    return Distance(point, center) <= radius;
+    return ManhattanDistance(point, center) <= radius;
 }
 
 std::ostream& WritePoint(std::ostream& os, const Point& p, const std::string& msg = "") {
@@ -163,7 +172,7 @@ public:
     }
 
     bool CanStrike(const Point& position) const {
-        return Distance(position, Position) <= StrikeRadius;
+        return ManhattanDistance(position, Position) <= StrikeRadius;
     }
 
     void SetPosition(const Point& position) {
@@ -273,7 +282,7 @@ public:
     virtual std::string MakeDecision() = 0;
 };
 
-class FollowMostDistant : public IStrategy {
+class FollowMostDistant final : public IStrategy {
 public:
     FollowMostDistant(const GameWorldMap& worldMap, const Giant::ListType& giants, Thor& thor)
         : WorldMap(worldMap)
@@ -327,15 +336,20 @@ private:
 
     Point FindNextPosition(const Giant& mostDistantGiant, std::vector<Point>& allowedPositions) const {
         const auto& playerPosition = Player.GetPosition();
-        const auto distances = FindDistancesToGiant(mostDistantGiant);
+        const auto& giantPosition = mostDistantGiant.GetPosition();
+        const auto distances = FindDistancesToPoint(giantPosition);
         if (distances.Get(playerPosition.X, playerPosition.Y) != INF) {
             std::sort(allowedPositions.begin(), allowedPositions.end(), [&](const Point& lhs, const Point& rhs) {
-                return distances.Get(lhs.X, lhs.Y) < distances.Get(rhs.X, rhs.Y);
+                const auto lhsDistance = distances.Get(lhs.X, lhs.Y);
+                const auto rhsDistance = distances.Get(rhs.X, rhs.Y);
+                if (lhsDistance == rhsDistance) {
+                    return EuclidDistance(lhs, giantPosition) < EuclidDistance(rhs, giantPosition);
+                }
+                return lhsDistance < rhsDistance;
             });
         } else {
-            const auto& giantPosition = mostDistantGiant.GetPosition();
             std::sort(allowedPositions.begin(), allowedPositions.end(), [&](const Point& lhs, const Point& rhs) {
-                return Distance(lhs, giantPosition) < Distance(rhs, giantPosition);
+                return ManhattanDistance(lhs, giantPosition) < ManhattanDistance(rhs, giantPosition);
             });
         }
 
@@ -375,7 +389,7 @@ private:
         int maxDistance = 0;
         for (size_t i = 0; i < Giants.size(); ++i) {
             const auto& giant = Giants[i];
-            const int distanceToGiant = Distance(giant.GetPosition(), Player.GetPosition());
+            const int distanceToGiant = ManhattanDistance(giant.GetPosition(), Player.GetPosition());
             if (maxDistance < distanceToGiant) {
                 maxDistance = distanceToGiant;
                 maxIdx = i;
@@ -384,13 +398,12 @@ private:
         return Giants[maxIdx];
     }
 
-    DistanceMap FindDistancesToGiant(const Giant& giant) const {
+    DistanceMap FindDistancesToPoint(const Point& point) const {
         using VisitedMap = Matrix<uint8_t>;
 
         DistanceMap distances(WorldMap.GetMapWidth(), WorldMap.GetMapHeight(), INF);
         VisitedMap visited(WorldMap.GetMapWidth(), WorldMap.GetMapHeight(), false);
         std::queue<Point> toVisit;
-        const auto giantPosition = giant.GetPosition();
 
         const auto setDistance = [&](const Point& position, int distance) {
             distances.Set(position.X, position.Y, distance);
@@ -410,9 +423,9 @@ private:
             }
         };
 
-        setDistance(giantPosition, 0);
+        setDistance(point, 0);
         for (const auto& dir : GetPossibleDirections()) {
-            const auto nextPosition = giantPosition + dir;
+            const auto nextPosition = point + dir;
             if (!WorldMap.IsOnMap(nextPosition) || visited.Get(nextPosition.X, nextPosition.Y)) {
                 continue;
             }
@@ -460,7 +473,7 @@ public:
     }
 
 private:
-    static constexpr int THOR_STRIKE_RADIUS = 3;
+    static constexpr int THOR_STRIKE_RADIUS = 4;
     static constexpr int MAX_MAP_X = 40;
     static constexpr int MAX_MAP_Y = 18;
 
