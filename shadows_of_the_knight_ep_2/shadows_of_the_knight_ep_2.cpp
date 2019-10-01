@@ -4,6 +4,8 @@
 #include <sstream>
 #include <string>
 
+#define IS_DEBUG
+
 #pragma region("COMMON TYPES")
 using String = std::string;
 
@@ -110,12 +112,12 @@ public:
 
 class SimpleStrategy final : public IStrategy {
 public:
-    Point MakeDecision(const String&) override {
+    Point MakeDecision(const String& /*bombDirection*/) override {
         return {0, 0};
     }
 };
 
-Holder<IStrategy> CreateSimpleStrategy() {
+Holder<IStrategy> CreateStrategy() {
     return MakeHolder<SimpleStrategy>();
 }
 #pragma endregion
@@ -124,24 +126,27 @@ class Game final {
 public:
     explicit Game(std::istream& input) noexcept
         : House(ReadBuilding(input))
-        , TurnsLeft(Read<int>(input))
+        , TurnsLeft(ReadTurns(input))
         , Player(ReadBatman(input))
-        , Strategy(CreateSimpleStrategy())
+        , Strategy(CreateStrategy())
     {
     }
 
     bool IsRunning() const {
-        return true;
+        return TurnsLeft >= STOP_BELOW_TURNS;
     }
 
-    void NextStep(std::istream& input, std::ostream& output) {
-        String bombDir;
-        input >> bombDir;
-        const auto jumpTo = Strategy->MakeDecision(bombDir);
-        output << jumpTo.X << " " << jumpTo.Y << std::endl;
+    void NextTurn(std::istream& input, std::ostream& output) {
+        BeforeTurn();
+        OnTurn(input, output);
+        AfterTurn();
     }
 
 private:
+    static constexpr int STOP_BELOW_TURNS = 1;
+    static constexpr int MIN_INPUT_TURNS = 2;
+    static constexpr int MAX_INPUT_TURNS = 100;
+
     Building House;
     int TurnsLeft;
     Batman Player;
@@ -154,10 +159,34 @@ private:
         return {w, h};
     }
 
+    static int ReadTurns(std::istream& input) {
+        int turnsLeft = Read<int>(input);
+        return CheckArgument(turnsLeft, [](int turns) {
+            return turns >= MIN_INPUT_TURNS && turns <= MAX_INPUT_TURNS;
+        }, "Turns left");
+    }
+
     static Batman ReadBatman(std::istream& input) {
         int x = Read<int>(input);
         int y = Read<int>(input);
         return {x, y};
+    }
+
+    void BeforeTurn() {
+        if (!IsRunning()) {
+            throw std::runtime_error("The game is not running: no turns left");
+        }
+    }
+
+    void OnTurn(std::istream& input, std::ostream& output) {
+        String bombDir;
+        input >> bombDir;
+        const auto jumpTo = Strategy->MakeDecision(bombDir);
+        output << jumpTo.X << " " << jumpTo.Y << std::endl;
+    }
+
+    void AfterTurn() {
+        --TurnsLeft;
     }
 };
 
@@ -165,7 +194,7 @@ int main(int argc, const char** argv)
 {
     Game game(std::cin);
     while (game.IsRunning()) {
-        game.NextStep(std::cin, std::cout);
+        game.NextTurn(std::cin, std::cout);
     }
 
     return 0;
